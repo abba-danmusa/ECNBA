@@ -1,0 +1,87 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap");
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  font-family: "Manrope", sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(27, 95, 86, 0.32), transparent 28%),
+    linear-gradient(180deg, #07111a 0%, #02060b 100%);
+  --page-bg: #050c14;
+  --panel-bg: rgba(7, 16, 26, 0.84);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-strong: rgba(13, 28, 44, 0.96);
+  --text-main: #f2f7f9;
+  --text-soft: rgba(230, 238, 243, 0.74);
+  --text-dim: rgba(201, 214, 223, 0.56);
+  --line-soft: rgba(255, 255, 255, 0.08);
+  --brand-500: #1fb89d;
+  --brand-600: #17957f;
+  --brand-200: #9ae7d8;
+  --gold-400: #f0b14b;
+  --gold-500: #dc9632;
+  --danger-400: #ff7b72;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--text-main);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(31, 184, 157, 0.24);
+}
+
+.election-orb {
+  animation: drift 16s ease-in-out infinite;
+}
+
+.election-orb.alt {
+  animation-duration: 19s;
+  animation-direction: reverse;
+}
+
+.panel-rise {
+  animation: panel-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(0, -18px, 0) scale(1.04);
+  }
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
