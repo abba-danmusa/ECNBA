@@ -69,6 +69,11 @@ const HelpDeskDashboard = lazy(async () => {
   return { default: module.HelpDeskDashboard };
 });
 
+const PostElectionDashboard = lazy(async () => {
+  const module = await import("./components/PostElectionDashboard");
+  return { default: module.PostElectionDashboard };
+});
+
 type Mode = "signin" | "signup";
 type SignInStage = "credentials" | "mfa" | "success";
 type SignUpStage = "form" | "mfa" | "success";
@@ -468,6 +473,41 @@ export default function App() {
     });
   }
 
+  function createDemoObserverSession(): AuthSession {
+    const issuedAt = new Date();
+    const idleExpiresAt = new Date(
+      issuedAt.getTime() + ECNBA_SECURITY_POLICY.session.idleMinutes * 60_000,
+    ).toISOString();
+    const sessionExpiresAt = new Date(
+      issuedAt.getTime() + ECNBA_SECURITY_POLICY.session.absoluteHours * 60 * 60_000,
+    ).toISOString();
+
+    return {
+      displayName: "Adaeze U. Onwuka",
+      memberId: "ECNBA-5000",
+      branch: "National Observer",
+      email: "observer@ecnba.org",
+      issuedAt: issuedAt.toISOString(),
+      idleExpiresAt,
+      sessionExpiresAt,
+      assurance: "Password + authenticator app",
+      role: "observer",
+    };
+  }
+
+  function launchObserverDemo() {
+    startTransition(() => {
+      setMode("signin");
+      setSignInStage("success");
+      setSession(createDemoObserverSession());
+      setFlash({
+        tone: "positive",
+        message: "Post-election audit portal opened in demo mode. Observer tools are now available.",
+      });
+      resetSignUpFlow();
+    });
+  }
+
   function switchMode(nextMode: Mode) {
     startTransition(() => {
       setMode(nextMode);
@@ -742,6 +782,19 @@ export default function App() {
               });
             }}
           />
+        ) : session.role === "observer" ? (
+          <PostElectionDashboard
+            session={session}
+            onCloseSession={() => {
+              setSignInForm(initialSignInForm);
+              setSession(null);
+              resetSignInFlow();
+              setFlash({
+                tone: "neutral",
+                message: "Session closed. Sign in again when you are ready.",
+              });
+            }}
+          />
         ) : (
           <VoterDashboard
             session={session}
@@ -959,8 +1012,21 @@ export default function App() {
                 >
                   Preview Help Desk dashboard
                 </Button>
+              <Button
+                  type="button"
+                  h="56px"
+                  rounded="20px"
+                  bg="rgba(255,255,255,0.05)"
+                  color="var(--text-main)"
+                  fontWeight="800"
+                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
+                  _active={{ transform: "translateY(0)" }}
+                  onClick={launchObserverDemo}
+                >
+                  Preview Audit & Results portal
+                </Button>
                 <Text fontSize="sm" color="var(--text-soft)">
-                  Open a role-aware command center for the Chairman or Help Desk agent and inspect real election support workflows.
+                  Open a role-aware command center for the Chairman, Help Desk agent, or Observer and inspect secure election controls.
                 </Text>
               </Stack>
 
