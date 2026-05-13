@@ -13,7 +13,7 @@ type StoredRecoveryCode = {
   usedAt: string | null;
 };
 
-type AuthRole = "voter" | "chairman" | "observer";
+type AuthRole = "voter" | "chairman" | "observer" | "agent";
 
 type StoredAccount = {
   id: string;
