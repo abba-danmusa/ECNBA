@@ -827,7 +827,7 @@ export default function App() {
       />
 
       <Box maxW="1440px" mx="auto" px={{ base: "5", md: "8", xl: "10" }} py={{ base: "6", md: "8", xl: "10" }}>
-        <Grid templateColumns={{ base: "1fr", xl: "1.08fr 0.92fr" }} gap={{ base: "6", xl: "7" }} alignItems="start">
+        <Grid templateColumns={{ base: "1fr", xl: "1.08fr 0.92fr" }} gap={{ base: "6", xl: "7" }} alignItems="stretch">
           <GlassPanel accent="rgba(31, 184, 157, 0.12)">
             <Stack gap={{ base: "7", lg: "8" }} px={{ base: "6", md: "8", xl: "10" }} py={{ base: "7", md: "9" }}>
               <Stack gap="4" maxW="2xl">
@@ -939,24 +939,25 @@ export default function App() {
           </GlassPanel>
 
           <GlassPanel accent="rgba(240, 177, 75, 0.1)">
-            <Stack gap="6" px={{ base: "5", md: "7" }} py={{ base: "6", md: "7" }}>
-              <Flex align={{ base: "start", sm: "center" }} justify="space-between" gap="4" wrap="wrap">
-                <Stack gap="1.5">
-                  <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.22em" color="var(--text-dim)" fontWeight="700">
-                    Secure authentication
-                  </Text>
-                  <Heading fontFamily='"Sora", sans-serif' fontSize={{ base: "2xl", md: "3xl" }} color="var(--text-main)" letterSpacing="-0.03em">
-                    {mode === "signin" ? "Sign in to vote" : "Create election credentials"}
-                  </Heading>
-                </Stack>
+            <Flex direction="column" h="full">
+              <Stack gap="6" px={{ base: "5", md: "7" }} py={{ base: "6", md: "7" }} flex="1">
+                <Flex align={{ base: "start", sm: "center" }} justify="space-between" gap="4" wrap="wrap">
+                  <Stack gap="1.5">
+                    <Text fontSize="xs" textTransform="uppercase" letterSpacing="0.22em" color="var(--text-dim)" fontWeight="700">
+                      Secure authentication
+                    </Text>
+                    <Heading fontFamily='"Sora", sans-serif' fontSize={{ base: "2xl", md: "3xl" }} color="var(--text-main)" letterSpacing="-0.03em">
+                      {mode === "signin" ? "Sign in to vote" : "Create election credentials"}
+                    </Heading>
+                  </Stack>
 
-                <HStack
-                  bg="rgba(255,255,255,0.03)"
-                  border="1px solid var(--line-soft)"
-                  p="1"
-                  rounded="full"
-                  gap="1"
-                >
+                  <HStack
+                    bg="rgba(255,255,255,0.03)"
+                    border="1px solid var(--line-soft)"
+                    p="1"
+                    rounded="full"
+                    gap="1"
+                  >
                   <Button
                     onClick={() => switchMode("signin")}
                     rounded="full"
@@ -981,54 +982,6 @@ export default function App() {
               </Flex>
 
               {flash ? <StatusBanner tone={flash.tone} message={flash.message} /> : null}
-
-              <Stack gap="3">
-                <Button
-                  type="button"
-                  h="56px"
-                  rounded="20px"
-                  bg="linear-gradient(135deg, var(--brand-500), #14957e)"
-                  color="#02110d"
-                  fontWeight="800"
-                  _hover={{
-                    transform: "translateY(-1px)",
-                    boxShadow: "0 16px 36px rgba(31, 184, 157, 0.22)",
-                  }}
-                  _active={{ transform: "translateY(0)" }}
-                  onClick={launchChairmanDemo}
-                >
-                  Preview Chairman dashboard
-                </Button>
-                <Button
-                  type="button"
-                  h="56px"
-                  rounded="20px"
-                  bg="rgba(255,255,255,0.05)"
-                  color="var(--text-main)"
-                  fontWeight="800"
-                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
-                  _active={{ transform: "translateY(0)" }}
-                  onClick={launchAgentDemo}
-                >
-                  Preview Help Desk dashboard
-                </Button>
-              <Button
-                  type="button"
-                  h="56px"
-                  rounded="20px"
-                  bg="rgba(255,255,255,0.05)"
-                  color="var(--text-main)"
-                  fontWeight="800"
-                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
-                  _active={{ transform: "translateY(0)" }}
-                  onClick={launchObserverDemo}
-                >
-                  Preview Audit & Results portal
-                </Button>
-                <Text fontSize="sm" color="var(--text-soft)">
-                  Open a role-aware command center for the Chairman, Help Desk agent, or Observer and inspect secure election controls.
-                </Text>
-              </Stack>
 
               {mode === "signup" && signUpStage === "form" ? (
                 <form onSubmit={handleBeginEnrollment}>
@@ -1552,7 +1505,56 @@ export default function App() {
               <Text fontSize="sm" color="var(--text-dim)" lineHeight="1.75">
                 Prototype note: the interface, policy, and MFA flow are production-oriented, but this demo stores records and secrets in the browser so the experience can be reviewed without a backend. Real deployment should move identity proofing, TOTP verification, retry counting, and session issuance to the server.
               </Text>
+
+              <Stack gap="3" mt="auto">
+                <Button
+                  type="button"
+                  h="56px"
+                  rounded="20px"
+                  bg="linear-gradient(135deg, var(--brand-500), #14957e)"
+                  color="#02110d"
+                  fontWeight="800"
+                  _hover={{
+                    transform: "translateY(-1px)",
+                    boxShadow: "0 16px 36px rgba(31, 184, 157, 0.22)",
+                  }}
+                  _active={{ transform: "translateY(0)" }}
+                  onClick={launchChairmanDemo}
+                >
+                  Preview Chairman dashboard
+                </Button>
+                <Button
+                  type="button"
+                  h="56px"
+                  rounded="20px"
+                  bg="rgba(255,255,255,0.05)"
+                  color="var(--text-main)"
+                  fontWeight="800"
+                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
+                  _active={{ transform: "translateY(0)" }}
+                  onClick={launchAgentDemo}
+                >
+                  Preview Help Desk dashboard
+                </Button>
+                <Button
+                  type="button"
+                  h="56px"
+                  rounded="20px"
+                  bg="rgba(255,255,255,0.05)"
+                  color="var(--text-main)"
+                  fontWeight="800"
+                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
+                  _active={{ transform: "translateY(0)" }}
+                  onClick={launchObserverDemo}
+                >
+                  Preview Audit & Results portal
+                </Button>
+                <Text fontSize="sm" color="var(--text-soft)">
+                  Open a role-aware command center for the Chairman, Help Desk agent, or Observer and inspect secure election controls.
+                </Text>
+              </Stack>
             </Stack>
+          </Flex>
           </GlassPanel>
         </Grid>
       </Box>
