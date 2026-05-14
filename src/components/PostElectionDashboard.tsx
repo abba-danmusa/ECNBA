@@ -9,14 +9,26 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  VStack,
+  Spinner,
+  Badge,
 } from "@chakra-ui/react";
 import {
   ArrowRight,
   Download,
   ShieldCheck,
   Sparkles,
+  CheckCircle,
+  AlertCircle,
+  Copy,
 } from "lucide-react";
 import type { AuthSession } from "../lib/mockAuth";
+import {
+  initializeAuditLedger,
+  verifyVotingReceipt,
+  getValidReceiptIdForDemo,
+  type VerificationResult,
+} from "../lib/receiptVerification";
 
 const OFFICIAL_RESULTS = [
   { office: "President", winner: "Barrister Adewale O.", votes: "45,231", percent: "52.3%" },
@@ -31,17 +43,23 @@ const REPORTS = [
   { label: "Voter Turnout Analysis (Excel)", size: "16.2 MB" },
 ];
 
-type ReceiptStatus = {
-  verified: boolean;
-  message: string;
-  details?: string;
-  reference?: string;
-};
-
 export function PostElectionDashboard({ session, onCloseSession }: { session: AuthSession; onCloseSession: () => void }) {
   const [now, setNow] = useState(Date.now());
-  const [receiptId, setReceiptId] = useState("RX-47A9-F2B1-883K-LM22");
-  const [verification, setVerification] = useState<ReceiptStatus | null>(null);
+  const [receiptId, setReceiptId] = useState("");
+  const [verification, setVerification] = useState<VerificationResult | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [demoReceiptId, setDemoReceiptId] = useState<string | null>(null);
+  const [ledgerInitialized, setLedgerInitialized] = useState(false);
+
+  // Initialize audit ledger on component mount
+  useEffect(() => {
+    initializeAuditLedger().then(() => {
+      const validReceiptId = getValidReceiptIdForDemo();
+      setDemoReceiptId(validReceiptId);
+      setReceiptId(validReceiptId);
+      setLedgerInitialized(true);
+    });
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -50,20 +68,28 @@ export function PostElectionDashboard({ session, onCloseSession }: { session: Au
 
   const lastUpdated = new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-  function verifyReceipt() {
-    if (receiptId.trim().toUpperCase() === "RX-47A9-F2B1-883K-LM22") {
-      setVerification({
-        verified: true,
-        message: "VERIFIED",
-        details: "Your vote for President was recorded on 20/07/2026 14:32:21 and included in the final tally.",
-        reference: "0x7f83b1657ff1fc53b92dc18148a1d65d",
-      });
-    } else {
-      setVerification({
-        verified: false,
-        message: "NOT VERIFIED",
-        details: "The receipt ID could not be found in the published audit ledger.",
-      });
+  async function verifyReceipt() {
+    if (!receiptId.trim()) {
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const result = await verifyVotingReceipt(receiptId.trim().toUpperCase());
+      setVerification(result);
+    } finally {
+      setIsVerifying(false);
+    }
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+  }
+
+  function handleLoadDemoReceipt() {
+    if (demoReceiptId) {
+      setReceiptId(demoReceiptId);
+      setVerification(null);
     }
   }
 
@@ -117,36 +143,149 @@ export function PostElectionDashboard({ session, onCloseSession }: { session: Au
             🔍 Cryptographic receipt verifier (Public)
           </Text>
           <Stack gap="5" mt="5">
-            <Flex gap="3" wrap="wrap">
-              <Input
-                value={receiptId}
-                onChange={(event) => setReceiptId(event.target.value.toUpperCase())}
-                bg="rgba(255,255,255,0.03)"
-                border="1px solid var(--line-soft)"
-                color="var(--text-main)"
-                placeholder="Enter your receipt ID"
-                rounded="20px"
-                flex="1"
-              />
-              <Button onClick={verifyReceipt} rounded="20px" fontWeight="700">
-                Verify
-              </Button>
-            </Flex>
-            <Box bg="rgba(255,255,255,0.02)" border="1px solid rgba(255,255,255,0.08)" rounded="24px" p="5">
-              {verification ? (
-                <Stack gap="3">
-                  <Text fontWeight="700" color={verification.verified ? "#1fb89d" : "#ff7b72"}>
-                    {verification.verified ? "✅ VERIFIED" : "❌ NOT VERIFIED"}
-                  </Text>
-                  <Text color="var(--text-soft)">{verification.details}</Text>
-                  {verification.reference ? (
-                    <Text color="var(--text-soft)">🔗 Blockchain reference: {verification.reference}</Text>
-                  ) : null}
-                </Stack>
-              ) : (
-                <Text color="var(--text-soft)">Enter a receipt ID above to prove your vote was included in the published tally.</Text>
+            <Stack gap="3">
+              <Flex gap="3" wrap="wrap">
+                <Input
+                  value={receiptId}
+                  onChange={(event) => setReceiptId(event.target.value.toUpperCase())}
+                  bg="rgba(255,255,255,0.03)"
+                  border="1px solid var(--line-soft)"
+                  color="var(--text-main)"
+                  placeholder="Enter your receipt ID (e.g., RX-XXXX-XXXX-XXXX-XXXX)"
+                  rounded="20px"
+                  flex="1"
+                  disabled={isVerifying}
+                />
+                <Button
+                  onClick={verifyReceipt}
+                  rounded="20px"
+                  fontWeight="700"
+                  loading={isVerifying}
+                  disabled={!receiptId.trim()}
+                >
+                  {isVerifying ? "Verifying..." : "Verify"}
+                </Button>
+              </Flex>
+              {ledgerInitialized && demoReceiptId && (
+                <Text fontSize="xs" color="var(--text-dim)">
+                  💡 Tip: Click{" "}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={handleLoadDemoReceipt}
+                    color="var(--brand-200)"
+                    fontWeight="700"
+                  >
+                    Load Demo Receipt
+                  </Button>{" "}
+                  to test the system
+                </Text>
               )}
-            </Box>
+            </Stack>
+
+            {verification && (
+              <Box
+                bg="rgba(255,255,255,0.02)"
+                border={`1px solid ${verification.verified ? "rgba(31, 184, 157, 0.3)" : "rgba(255, 123, 114, 0.3)"}`}
+                rounded="24px"
+                p="5"
+              >
+                <VStack gap="4" align="start">
+                  <HStack gap="3" width="full">
+                    {verification.verified ? (
+                      <>
+                        <CheckCircle size={24} color="#1fb89d" strokeWidth={1.5} />
+                        <Text fontWeight="700" color="#1fb89d" fontSize="lg">
+                          ✅ {verification.message}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={24} color="#ff7b72" strokeWidth={1.5} />
+                        <Text fontWeight="700" color="#ff7b72" fontSize="lg">
+                          ❌ {verification.message}
+                        </Text>
+                      </>
+                    )}
+                  </HStack>
+
+                  <Text color="var(--text-soft)" fontSize="sm">
+                    {verification.details}
+                  </Text>
+
+                  {verification.receiptData && (
+                    <Stack gap="2" width="full" bg="rgba(255,255,255,0.02)" rounded="16px" p="3">
+                      <HStack justify="space-between" fontSize="sm">
+                        <Text color="var(--text-dim)">Receipt Timestamp:</Text>
+                        <Text color="var(--text-soft)" fontFamily="monospace">
+                          {new Date(verification.receiptData.timestamp).toLocaleString()}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" fontSize="sm">
+                        <Text color="var(--text-dim)">Office:</Text>
+                        <Badge colorScheme="brand" rounded="full">
+                          {verification.receiptData.office}
+                        </Badge>
+                      </HStack>
+                      <HStack justify="space-between" fontSize="sm">
+                        <Text color="var(--text-dim)">Votes for Office:</Text>
+                        <Text color="var(--text-soft)" fontWeight="700">
+                          {verification.receiptData.includeCount} included votes
+                        </Text>
+                      </HStack>
+                    </Stack>
+                  )}
+
+                  {verification.reference && (
+                    <HStack gap="2" width="full">
+                      <VStack gap="1" align="start" flex="1">
+                        <Text fontSize="xs" color="var(--text-dim)" letterSpacing="0.1em" textTransform="uppercase" fontWeight="700">
+                          🔗 Hash Reference
+                        </Text>
+                        <Text color="var(--text-soft)" fontSize="xs" fontFamily="monospace" wordBreak="break-all">
+                          {verification.reference}
+                        </Text>
+                      </VStack>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        rounded="12px"
+                        onClick={() => copyToClipboard(verification.reference!)}
+                        title="Copy to clipboard"
+                      >
+                        <Copy size={14} />
+                      </Button>
+                    </HStack>
+                  )}
+
+                  <Box fontSize="xs" color="var(--text-dim)" bg="rgba(255,255,255,0.01)" rounded="12px" p="3" width="full">
+                    <Text fontWeight="700" mb="1">
+                      🛡️ Cryptographic Verification Details:
+                    </Text>
+                    <Text>
+                      This receipt has been verified against the published audit ledger using SHA-256 commitments and HMAC-SHA1
+                      signatures. The vote commitment proves your ballot was recorded and included in the final tally.
+                    </Text>
+                  </Box>
+                </VStack>
+              </Box>
+            )}
+
+            {!verification && !isVerifying && (
+              <Box bg="rgba(255,255,255,0.02)" border="1px solid rgba(255,255,255,0.08)" rounded="24px" p="5">
+                <Text color="var(--text-soft)" fontSize="sm">
+                  🎫 Enter a receipt ID above to verify that your ballot was received, recorded, and included in the official tally.
+                  The receipt proves your vote counts without revealing your candidate selection.
+                </Text>
+              </Box>
+            )}
+
+            {isVerifying && (
+              <Flex align="center" justify="center" gap="3" p="6">
+                <Spinner color="var(--brand-200)" size="sm" />
+                <Text color="var(--text-soft)">Verifying receipt against audit ledger...</Text>
+              </Flex>
+            )}
           </Stack>
         </Box>
 
@@ -176,20 +315,37 @@ export function PostElectionDashboard({ session, onCloseSession }: { session: Au
           <Box bg="rgba(255,255,255,0.03)" border="1px solid var(--line-soft)" rounded="28px" p="6">
             <HStack align="center" gap="3" mb="4">
               <ShieldCheck color="#1fb89d" />
-              <Text fontWeight="700" color="var(--text-main)">Certified transparency</Text>
+              <Text fontWeight="700" color="var(--text-main)">Cryptographically Certified</Text>
             </HStack>
-            <Text color="var(--text-soft)" fontSize="sm">
-              Official results and integrity checks are published with cryptographic receipts for public verification.
-            </Text>
+            <Stack gap="2">
+              <Text color="var(--text-soft)" fontSize="sm">
+                All receipts are signed using HMAC-SHA1 and verified against SHA-256 commitments. Your vote commitment proves the
+                ballot was received and counted.
+              </Text>
+              <Text fontSize="xs" color="var(--text-dim)" fontFamily="monospace">
+                • Algorithm: HMAC-SHA1 signatures
+                <br />• Commitment: SHA-256 hash
+                <br />• Entropy: 96-bit receipt randomness
+              </Text>
+            </Stack>
           </Box>
+
           <Box bg="rgba(255,255,255,0.03)" border="1px solid var(--line-soft)" rounded="28px" p="6">
             <HStack align="center" gap="3" mb="4">
               <Sparkles color="#1fb89d" />
-              <Text fontWeight="700" color="var(--text-main)">Public audit visibility</Text>
+              <Text fontWeight="700" color="var(--text-main)">Privacy-Preserving Verification</Text>
             </HStack>
-            <Text color="var(--text-soft)" fontSize="sm">
-              Anyone can confirm their vote was counted without exposing candidate-level choices or personal voter data.
-            </Text>
+            <Stack gap="2">
+              <Text color="var(--text-soft)" fontSize="sm">
+                The receipt proves your vote was recorded without revealing your candidate selection. Ballot secrecy is protected
+                through cryptographic commitment schemes.
+              </Text>
+              <Text fontSize="xs" color="var(--text-dim)">
+                ✓ Zero-knowledge vote verification
+                <br />✓ Voter anonymity maintained
+                <br />✓ Tamper-evident receipts
+              </Text>
+            </Stack>
           </Box>
         </SimpleGrid>
       </Stack>

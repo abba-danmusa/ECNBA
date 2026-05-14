@@ -16,6 +16,10 @@ function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.slice().buffer;
 }
 
+export function getArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return asArrayBuffer(bytes);
+}
+
 export function randomBytes(length: number): Uint8Array {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
