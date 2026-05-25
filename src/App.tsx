@@ -64,6 +64,11 @@ const AdminDashboard = lazy(async () => {
   return { default: module.AdminDashboard };
 });
 
+const SecretaryDashboard = lazy(async () => {
+  const module = await import("./components/AdminDashboard");
+  return { default: module.SecretaryDashboard };
+});
+
 const HelpDeskDashboard = lazy(async () => {
   const module = await import("./components/HelpDeskDashboard");
   return { default: module.HelpDeskDashboard };
@@ -438,6 +443,41 @@ export default function App() {
     });
   }
 
+  function createDemoSecretarySession(): AuthSession {
+    const issuedAt = new Date();
+    const idleExpiresAt = new Date(
+      issuedAt.getTime() + ECNBA_SECURITY_POLICY.session.idleMinutes * 60_000,
+    ).toISOString();
+    const sessionExpiresAt = new Date(
+      issuedAt.getTime() + ECNBA_SECURITY_POLICY.session.absoluteHours * 60 * 60_000,
+    ).toISOString();
+
+    return {
+      displayName: "Bolanle A. Fashina",
+      memberId: "ECNBA-0021",
+      branch: "National Secretariat",
+      email: "secretary@ecnba.org",
+      issuedAt: issuedAt.toISOString(),
+      idleExpiresAt,
+      sessionExpiresAt,
+      assurance: "Password + authenticator app",
+      role: "secretary",
+    };
+  }
+
+  function launchSecretaryDemo() {
+    startTransition(() => {
+      setMode("signin");
+      setSignInStage("success");
+      setSession(createDemoSecretarySession());
+      setFlash({
+        tone: "positive",
+        message: "Secretary dashboard opened in demo mode. Coordination and reporting tools are now available.",
+      });
+      resetSignUpFlow();
+    });
+  }
+
   function createDemoAgentSession(): AuthSession {
     const issuedAt = new Date();
     const idleExpiresAt = new Date(
@@ -734,6 +774,16 @@ export default function App() {
   const inputStyles = getInputStyles();
 
   if (mode === "signin" && signInStage === "success" && session) {
+    function closeActiveSession() {
+      setSignInForm(initialSignInForm);
+      setSession(null);
+      resetSignInFlow();
+      setFlash({
+        tone: "neutral",
+        message: "Session closed. Sign in again when you are ready.",
+      });
+    }
+
     return (
       <Suspense
         fallback={
@@ -757,57 +807,15 @@ export default function App() {
         }
       >
         {session.role === "chairman" ? (
-          <AdminDashboard
-            session={session}
-            onCloseSession={() => {
-              setSignInForm(initialSignInForm);
-              setSession(null);
-              resetSignInFlow();
-              setFlash({
-                tone: "neutral",
-                message: "Session closed. Sign in again when you are ready.",
-              });
-            }}
-          />
+          <AdminDashboard session={session} onCloseSession={closeActiveSession} />
+        ) : session.role === "secretary" ? (
+          <SecretaryDashboard session={session} onCloseSession={closeActiveSession} />
         ) : session.role === "agent" ? (
-          <HelpDeskDashboard
-            session={session}
-            onCloseSession={() => {
-              setSignInForm(initialSignInForm);
-              setSession(null);
-              resetSignInFlow();
-              setFlash({
-                tone: "neutral",
-                message: "Session closed. Sign in again when you are ready.",
-              });
-            }}
-          />
+          <HelpDeskDashboard session={session} onCloseSession={closeActiveSession} />
         ) : session.role === "observer" ? (
-          <PostElectionDashboard
-            session={session}
-            onCloseSession={() => {
-              setSignInForm(initialSignInForm);
-              setSession(null);
-              resetSignInFlow();
-              setFlash({
-                tone: "neutral",
-                message: "Session closed. Sign in again when you are ready.",
-              });
-            }}
-          />
+          <PostElectionDashboard session={session} onCloseSession={closeActiveSession} />
         ) : (
-          <VoterDashboard
-            session={session}
-            onCloseSession={() => {
-              setSignInForm(initialSignInForm);
-              setSession(null);
-              resetSignInFlow();
-              setFlash({
-                tone: "neutral",
-                message: "Session closed. Sign in again when you are ready.",
-              });
-            }}
-          />
+          <VoterDashboard session={session} onCloseSession={closeActiveSession} />
         )}
       </Suspense>
     );
@@ -1532,6 +1540,19 @@ export default function App() {
                   fontWeight="800"
                   _hover={{ bg: "rgba(255,255,255,0.1)" }}
                   _active={{ transform: "translateY(0)" }}
+                  onClick={launchSecretaryDemo}
+                >
+                  Preview Secretary dashboard
+                </Button>
+                <Button
+                  type="button"
+                  h="56px"
+                  rounded="20px"
+                  bg="rgba(255,255,255,0.05)"
+                  color="var(--text-main)"
+                  fontWeight="800"
+                  _hover={{ bg: "rgba(255,255,255,0.1)" }}
+                  _active={{ transform: "translateY(0)" }}
                   onClick={launchAgentDemo}
                 >
                   Preview Help Desk dashboard
@@ -1550,7 +1571,7 @@ export default function App() {
                   Preview Audit & Results portal
                 </Button>
                 <Text fontSize="sm" color="var(--text-soft)">
-                  Open a role-aware command center for the Chairman, Help Desk agent, or Observer and inspect secure election controls.
+                  Open a role-aware command center for the Chairman, Secretary, Help Desk agent, or Observer and inspect secure election controls.
                 </Text>
               </Stack>
             </Stack>

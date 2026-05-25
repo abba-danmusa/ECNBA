@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -6,6 +6,7 @@ import {
   Grid,
   Heading,
   HStack,
+  Input,
   SimpleGrid,
   Stack,
   Text,
@@ -78,9 +79,48 @@ type SubmittedReceipt = {
   copyValue: string;
 };
 
+type SupportTicketCategory =
+  | "accessibility"
+  | "ballot-navigation"
+  | "verification"
+  | "receipt"
+  | "technical"
+  | "other";
+
+type SupportTicketDraft = {
+  category: SupportTicketCategory;
+  subject: string;
+  detail: string;
+  preferredContact: "phone" | "email";
+  referenceCode: string;
+};
+
+type SupportTicket = {
+  id: string;
+  category: SupportTicketCategory;
+  subject: string;
+  detail: string;
+  preferredContact: "phone" | "email";
+  referenceCode: string;
+  priority: "Standard" | "Priority";
+  status: "Open" | "Priority queue";
+  createdAt: string;
+  responseTargetAt: string;
+};
+
 const POLLS_CLOSES_AT = "2026-05-16T17:00:00+01:00";
 const DRAFT_STORAGE_PREFIX = "ecnba-voter-draft:v1:";
 const RECEIPT_STORAGE_PREFIX = "ecnba-voter-receipt:v1:";
+const SUPPORT_TICKETS_STORAGE_PREFIX = "ecnba-voter-support:v1:";
+
+const SUPPORT_CATEGORY_LABELS: Record<SupportTicketCategory, string> = {
+  accessibility: "Accessibility support",
+  "ballot-navigation": "Ballot navigation",
+  verification: "Identity or verification",
+  receipt: "Receipt or tracking code",
+  technical: "Technical issue",
+  other: "Other complaint or issue",
+};
 
 const BALLOT_OFFICES: BallotOffice[] = [
   {
@@ -431,12 +471,26 @@ function createInitialSelections(): BallotSelections {
   );
 }
 
+function createInitialSupportTicketDraft(referenceCode = ""): SupportTicketDraft {
+  return {
+    category: "ballot-navigation",
+    subject: "",
+    detail: "",
+    preferredContact: "phone",
+    referenceCode,
+  };
+}
+
 function getDraftStorageKey(memberId: string): string {
   return `${DRAFT_STORAGE_PREFIX}${memberId}`;
 }
 
 function getReceiptStorageKey(memberId: string): string {
   return `${RECEIPT_STORAGE_PREFIX}${memberId}`;
+}
+
+function getSupportTicketStorageKey(memberId: string): string {
+  return `${SUPPORT_TICKETS_STORAGE_PREFIX}${memberId}`;
 }
 
 function readLocalStorage<T>(key: string): T | null {
@@ -535,6 +589,13 @@ function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function formatSupportTime(value: string): string {
+  return new Intl.DateTimeFormat("en-NG", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function formatCountdown(milliseconds: number): string {
   if (milliseconds <= 0) {
     return "Polls closed";
@@ -559,6 +620,34 @@ async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function createSupportTicket(
+  session: AuthSession,
+  draft: SupportTicketDraft,
+): SupportTicket {
+  const createdAt = new Date().toISOString();
+  const normalizedMemberId = session.memberId.replace(/[^A-Z0-9]/gi, "").slice(-4).toUpperCase();
+  const suffix = crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  const responseTargetMinutes =
+    draft.category === "verification" || draft.category === "receipt" ? 5 : 12;
+  const responseTargetAt = new Date(
+    new Date(createdAt).getTime() + responseTargetMinutes * 60_000,
+  ).toISOString();
+  const priority = responseTargetMinutes === 5 ? "Priority" : "Standard";
+
+  return {
+    id: `HD-${normalizedMemberId}-${suffix}`,
+    category: draft.category,
+    subject: draft.subject.trim(),
+    detail: draft.detail.trim(),
+    preferredContact: draft.preferredContact,
+    referenceCode: draft.referenceCode.trim(),
+    priority,
+    status: priority === "Priority" ? "Priority queue" : "Open",
+    createdAt,
+    responseTargetAt,
+  };
 }
 
 async function createReceipt(
@@ -847,12 +936,18 @@ export function VoterDashboard({
   const [helpOpen, setHelpOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [notice, setNotice] = useState<{ tone: Tone; message: string } | null>(null);
+  const [helpNotice, setHelpNotice] = useState<{ tone: Tone; message: string } | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [selections, setSelections] = useState<BallotSelections>(() => createInitialSelections());
   const [receipt, setReceipt] = useState<SubmittedReceipt | null>(null);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [ticketDraft, setTicketDraft] = useState<SupportTicketDraft>(() =>
+    createInitialSupportTicketDraft(),
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -900,6 +995,15 @@ export function VoterDashboard({
   }, [session.memberId]);
 
   useEffect(() => {
+    const storedTickets = readLocalStorage<SupportTicket[]>(getSupportTicketStorageKey(session.memberId));
+
+    setSupportTickets(Array.isArray(storedTickets) ? storedTickets : []);
+    setTicketDraft(createInitialSupportTicketDraft());
+    setHelpNotice(null);
+    setHelpOpen(false);
+  }, [session.memberId]);
+
+  useEffect(() => {
     if (!hydrated || receipt) {
       return;
     }
@@ -912,6 +1016,21 @@ export function VoterDashboard({
     setDraftSavedAt(updatedAt);
   }, [hydrated, receipt, selections, session.memberId]);
 
+  useEffect(() => {
+    if (!receipt) {
+      return;
+    }
+
+    setTicketDraft((current) =>
+      current.referenceCode
+        ? current
+        : {
+            ...current,
+            referenceCode: receipt.trackingCode,
+          },
+    );
+  }, [receipt]);
+
   const completedOffices = BALLOT_OFFICES.filter((office) =>
     isOfficeComplete(office, selections[office.id]),
   ).length;
@@ -922,6 +1041,8 @@ export function VoterDashboard({
   const remainingOffices = BALLOT_OFFICES.filter(
     (office) => !isOfficeComplete(office, selections[office.id]),
   );
+  const openTicketCount = supportTickets.length;
+  const latestSupportTicket = supportTickets[0] ?? null;
 
   function updateSelection(officeId: string, next: BallotSelection) {
     setSelections((current) => ({
@@ -963,6 +1084,16 @@ export function VoterDashboard({
     });
   }
 
+  function handleSupportDraftChange(
+    field: keyof SupportTicketDraft,
+    value: SupportTicketDraft[keyof SupportTicketDraft],
+  ) {
+    setTicketDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
   async function handleSubmitBallot() {
     setSubmitting(true);
     setNotice(null);
@@ -1000,6 +1131,41 @@ export function VoterDashboard({
     await navigator.clipboard.writeText(receipt.copyValue);
     setCopyState("copied");
     window.setTimeout(() => setCopyState("idle"), 1800);
+  }
+
+  async function handleSubmitSupportTicket() {
+    const subject = ticketDraft.subject.trim();
+    const detail = ticketDraft.detail.trim();
+
+    if (!subject || detail.length < 20) {
+      setHelpNotice({
+        tone: "critical",
+        message:
+          "Add a short subject and enough detail for the help desk to investigate the issue without asking you to repeat it.",
+      });
+      return;
+    }
+
+    setTicketSubmitting(true);
+
+    try {
+      const nextTicket = createSupportTicket(session, ticketDraft);
+      const nextTickets = [nextTicket, ...supportTickets];
+
+      writeLocalStorage(getSupportTicketStorageKey(session.memberId), nextTickets);
+      setSupportTickets(nextTickets);
+      setTicketDraft(createInitialSupportTicketDraft(receipt?.trackingCode ?? ""));
+      setHelpNotice({
+        tone: "positive",
+        message: `Ticket ${nextTicket.id} opened successfully. The ${SUPPORT_CATEGORY_LABELS[nextTicket.category].toLowerCase()} queue will target a response by ${formatSupportTime(nextTicket.responseTargetAt)}.`,
+      });
+      setNotice({
+        tone: "positive",
+        message: `Help desk ticket ${nextTicket.id} was opened for this voter session. Your ballot progress remains intact.`,
+      });
+    } finally {
+      setTicketSubmitting(false);
+    }
   }
 
   return (
@@ -1577,6 +1743,15 @@ export function VoterDashboard({
                     <Text fontSize="sm" color="var(--text-soft)" lineHeight="1.75">
                       Accessible help is available throughout the ballot. Voters can pause here, contact support, and return without losing a local draft.
                     </Text>
+                    <MetricCard
+                      label="Help desk tickets"
+                      value={openTicketCount.toString()}
+                      hint={
+                        latestSupportTicket
+                          ? `Latest: ${latestSupportTicket.id} • ${latestSupportTicket.status}`
+                          : "No active voter support tickets on this device."
+                      }
+                    />
                   </Stack>
                 </GlassPanel>
               </Stack>
@@ -1585,39 +1760,357 @@ export function VoterDashboard({
         </Stack>
       </Box>
 
-      <Stack position="fixed" right={{ base: "4", md: "6" }} bottom={{ base: "4", md: "6" }} zIndex={30} align="end" gap="3">
-        {helpOpen ? (
-          <Box
-            maxW="340px"
-            rounded="24px"
-            border="1px solid var(--line-soft)"
-            bg="rgba(7,16,26,0.96)"
-            boxShadow="0 24px 80px rgba(0,0,0,0.35)"
-            px="5"
-            py="5"
-          >
-            <Stack gap="3">
-              <HStack gap="3" color="var(--brand-200)">
-                <CircleHelp size={18} />
-                <Text fontWeight="700" color="var(--text-main)">
-                  Voter help desk
-                </Text>
-              </HStack>
-              <Text fontSize="sm" color="var(--text-soft)" lineHeight="1.75">
-                Need assistance with accessibility, verification, or ballot navigation? Support remains available without exposing your current choices.
-              </Text>
-              <Text fontSize="sm" color="var(--text-soft)">
-                Hotline: +234 700 ECNBA HELP
-              </Text>
-              <Text fontSize="sm" color="var(--text-soft)">
-                Email: helpdesk@ecnba.vote
-              </Text>
-              <Text fontSize="sm" color="var(--text-soft)">
-                Response target: under 5 minutes during the live poll window.
-              </Text>
-            </Stack>
+      {helpOpen ? (
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex={40}
+          bg="rgba(2, 8, 14, 0.76)"
+          backdropFilter="blur(10px)"
+          px={{ base: "4", md: "6" }}
+          py={{ base: "5", md: "8" }}
+          overflowY="auto"
+        >
+          <Box maxW="880px" mx="auto">
+            <GlassPanel accent="rgba(240, 177, 75, 0.14)" lowBandwidth={lowBandwidth}>
+              <Stack gap="6" px={{ base: "5", md: "7" }} py={{ base: "6", md: "7" }}>
+                <Flex justify="space-between" align="start" gap="4" wrap="wrap">
+                  <Stack gap="3" maxW="2xl">
+                    <HStack gap="3" color="var(--brand-200)">
+                      <CircleHelp size={20} />
+                      <Text fontWeight="700" color="var(--text-main)">
+                        Voter help desk
+                      </Text>
+                    </HStack>
+                    <Text color="var(--text-soft)" lineHeight="1.75">
+                      Raise a complaint, report a ballot issue, or open a support ticket without exposing your vote selections. Your current ballot draft remains on this device while the help desk reviews your issue.
+                    </Text>
+                  </Stack>
+
+                  <Button
+                    type="button"
+                    rounded="full"
+                    variant="ghost"
+                    border="1px solid var(--line-soft)"
+                    color="var(--text-soft)"
+                    onClick={() => setHelpOpen(false)}
+                  >
+                    Close help desk
+                  </Button>
+                </Flex>
+
+                <SimpleGrid columns={{ base: 1, lg: 2 }} gap="5">
+                  <Stack gap="4">
+                    <Stack
+                      as="form"
+                      gap="4"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void handleSubmitSupportTicket();
+                      }}
+                    >
+                      <SimpleGrid columns={{ base: 1, md: 2 }} gap="4">
+                        <Stack gap="2">
+                          <Text fontSize="sm" fontWeight="700" color="var(--text-main)">
+                            Issue category
+                          </Text>
+                          <Box
+                            rounded="18px"
+                            border="1px solid var(--line-soft)"
+                            bg="rgba(255,255,255,0.03)"
+                            px="1"
+                          >
+                            <select
+                              value={ticketDraft.category}
+                              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                                handleSupportDraftChange(
+                                  "category",
+                                  event.target.value as SupportTicketCategory,
+                                )
+                              }
+                              style={{
+                                width: "100%",
+                                border: "none",
+                                outline: "none",
+                                background: "transparent",
+                                color: "var(--text-main)",
+                                padding: "0.75rem 0.9rem",
+                                appearance: "none",
+                              }}
+                            >
+                              {Object.entries(SUPPORT_CATEGORY_LABELS).map(([value, label]) => (
+                                <option
+                                  key={value}
+                                  value={value}
+                                  style={{ background: "#07101a", color: "#e6eef3" }}
+                                >
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </Box>
+                        </Stack>
+
+                        <Stack gap="2">
+                          <Text fontSize="sm" fontWeight="700" color="var(--text-main)">
+                            Preferred contact
+                          </Text>
+                          <Box
+                            rounded="18px"
+                            border="1px solid var(--line-soft)"
+                            bg="rgba(255,255,255,0.03)"
+                            px="1"
+                          >
+                            <select
+                              value={ticketDraft.preferredContact}
+                              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                                handleSupportDraftChange(
+                                  "preferredContact",
+                                  event.target.value as SupportTicketDraft["preferredContact"],
+                                )
+                              }
+                              style={{
+                                width: "100%",
+                                border: "none",
+                                outline: "none",
+                                background: "transparent",
+                                color: "var(--text-main)",
+                                padding: "0.75rem 0.9rem",
+                                appearance: "none",
+                              }}
+                            >
+                              <option value="phone" style={{ background: "#07101a", color: "#e6eef3" }}>
+                                Phone callback
+                              </option>
+                              <option value="email" style={{ background: "#07101a", color: "#e6eef3" }}>
+                                Email follow-up
+                              </option>
+                            </select>
+                          </Box>
+                        </Stack>
+                      </SimpleGrid>
+
+                      <Stack gap="2">
+                        <Text fontSize="sm" fontWeight="700" color="var(--text-main)">
+                          Ticket subject
+                        </Text>
+                        <Input
+                          value={ticketDraft.subject}
+                          onChange={(event) => handleSupportDraftChange("subject", event.target.value)}
+                          placeholder="Example: Receipt copy is missing after submission"
+                          rounded="18px"
+                          border="1px solid var(--line-soft)"
+                          bg="rgba(255,255,255,0.03)"
+                          color="var(--text-main)"
+                          h="52px"
+                          _placeholder={{ color: "var(--text-dim)" }}
+                        />
+                      </Stack>
+
+                      <Stack gap="2">
+                        <Text fontSize="sm" fontWeight="700" color="var(--text-main)">
+                          Receipt or tracking reference
+                        </Text>
+                        <Input
+                          value={ticketDraft.referenceCode}
+                          onChange={(event) => handleSupportDraftChange("referenceCode", event.target.value)}
+                          placeholder={receipt ? receipt.trackingCode : "Optional if you have not submitted yet"}
+                          rounded="18px"
+                          border="1px solid var(--line-soft)"
+                          bg="rgba(255,255,255,0.03)"
+                          color="var(--text-main)"
+                          h="52px"
+                          _placeholder={{ color: "var(--text-dim)" }}
+                        />
+                        <Text fontSize="sm" color="var(--text-soft)">
+                          {receipt
+                            ? "The short tracking code was filled automatically so support can verify the session without seeing your ballot choices."
+                            : "If you have already submitted, add the receipt tracking code here for faster validation."}
+                        </Text>
+                      </Stack>
+
+                      <Stack gap="2">
+                        <Text fontSize="sm" fontWeight="700" color="var(--text-main)">
+                          Describe the issue
+                        </Text>
+                        <Box
+                          rounded="18px"
+                          border="1px solid var(--line-soft)"
+                          bg="rgba(255,255,255,0.03)"
+                          px="1"
+                          py="1"
+                        >
+                          <textarea
+                            value={ticketDraft.detail}
+                            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                              handleSupportDraftChange("detail", event.target.value)
+                            }
+                            placeholder="Tell the help desk what happened, what you expected, and whether you are blocked from continuing."
+                            style={{
+                              width: "100%",
+                              minHeight: "160px",
+                              border: "none",
+                              outline: "none",
+                              background: "transparent",
+                              color: "var(--text-main)",
+                              padding: "0.75rem 0.9rem",
+                              resize: "vertical",
+                            }}
+                          />
+                        </Box>
+                      </Stack>
+
+                      {helpNotice ? <InfoBanner tone={helpNotice.tone} message={helpNotice.message} /> : null}
+
+                      <HStack gap="3" flexWrap="wrap">
+                        <Button
+                          type="submit"
+                          h="54px"
+                          rounded="20px"
+                          bg="linear-gradient(135deg, var(--brand-500), #14957e)"
+                          color="#02110d"
+                          fontWeight="800"
+                          disabled={ticketSubmitting}
+                        >
+                          {ticketSubmitting ? "Opening ticket..." : "Open support ticket"}
+                        </Button>
+                        <Button
+                          type="button"
+                          rounded="20px"
+                          variant="ghost"
+                          border="1px solid var(--line-soft)"
+                          color="var(--text-soft)"
+                          onClick={() =>
+                            setTicketDraft(createInitialSupportTicketDraft(receipt?.trackingCode ?? ""))
+                          }
+                        >
+                          Clear form
+                        </Button>
+                      </HStack>
+                    </Stack>
+                  </Stack>
+
+                  <Stack gap="4">
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                      <MetricCard
+                        label="Open tickets"
+                        value={openTicketCount.toString()}
+                        hint="Tickets created from this voter session on this device."
+                      />
+                      <MetricCard
+                        label="Response window"
+                        value="5-12 min"
+                        hint="Priority verification and receipt issues are handled first."
+                      />
+                    </SimpleGrid>
+
+                    <Box
+                      rounded="24px"
+                      border="1px solid var(--line-soft)"
+                      bg="rgba(255,255,255,0.025)"
+                      px="5"
+                      py="5"
+                    >
+                      <Stack gap="3">
+                        <Text fontWeight="700" color="var(--text-main)">
+                          Live support contacts
+                        </Text>
+                        <Text fontSize="sm" color="var(--text-soft)">
+                          Hotline: +234 700 ECNBA HELP
+                        </Text>
+                        <Text fontSize="sm" color="var(--text-soft)">
+                          Email: helpdesk@ecnba.vote
+                        </Text>
+                        <Text fontSize="sm" color="var(--text-soft)" lineHeight="1.75">
+                          Help desk staff can validate your member ID, tracking code, and session branch without requesting your vote selections.
+                        </Text>
+                      </Stack>
+                    </Box>
+
+                    <Box
+                      rounded="24px"
+                      border="1px solid var(--line-soft)"
+                      bg="rgba(255,255,255,0.025)"
+                      px="5"
+                      py="5"
+                    >
+                      <Stack gap="3">
+                        <Text fontWeight="700" color="var(--text-main)">
+                          Ticket history
+                        </Text>
+                        {supportTickets.length === 0 ? (
+                          <Text fontSize="sm" color="var(--text-soft)" lineHeight="1.75">
+                            No complaints or support tickets have been opened from this device yet.
+                          </Text>
+                        ) : (
+                          <Stack gap="3">
+                            {supportTickets.slice(0, 3).map((ticket) => (
+                              <Box
+                                key={ticket.id}
+                                rounded="20px"
+                                border="1px solid rgba(255,255,255,0.08)"
+                                bg="rgba(255,255,255,0.02)"
+                                px="4"
+                                py="4"
+                              >
+                                <Flex justify="space-between" align="start" gap="4" wrap="wrap">
+                                  <Stack gap="1">
+                                    <Text color="var(--text-main)" fontWeight="700">
+                                      {ticket.subject}
+                                    </Text>
+                                    <Text fontSize="sm" color="var(--text-soft)">
+                                      {ticket.id} • {SUPPORT_CATEGORY_LABELS[ticket.category]}
+                                    </Text>
+                                  </Stack>
+                                  <Box
+                                    rounded="full"
+                                    border="1px solid"
+                                    borderColor={
+                                      ticket.priority === "Priority"
+                                        ? "rgba(240,177,75,0.28)"
+                                        : "rgba(31,184,157,0.22)"
+                                    }
+                                    bg={
+                                      ticket.priority === "Priority"
+                                        ? "rgba(240,177,75,0.12)"
+                                        : "rgba(31,184,157,0.08)"
+                                    }
+                                    px="3"
+                                    py="1.5"
+                                  >
+                                    <Text
+                                      fontSize="xs"
+                                      textTransform="uppercase"
+                                      letterSpacing="0.16em"
+                                      color={ticket.priority === "Priority" ? "#f7ce83" : "var(--brand-200)"}
+                                    >
+                                      {ticket.status}
+                                    </Text>
+                                  </Box>
+                                </Flex>
+                                <Text mt="3" fontSize="sm" color="var(--text-soft)" lineHeight="1.7">
+                                  Opened {formatDateTime(ticket.createdAt)} • Target response by {formatSupportTime(ticket.responseTargetAt)} via {ticket.preferredContact === "phone" ? "phone callback" : "email"}.
+                                </Text>
+                                {ticket.referenceCode ? (
+                                  <Text mt="2" fontSize="sm" color="var(--text-soft)">
+                                    Reference: {ticket.referenceCode}
+                                  </Text>
+                                ) : null}
+                              </Box>
+                            ))}
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Box>
+                  </Stack>
+                </SimpleGrid>
+              </Stack>
+            </GlassPanel>
           </Box>
-        ) : null}
+        </Box>
+      ) : null}
+
+      <Stack position="fixed" right={{ base: "4", md: "6" }} bottom={{ base: "4", md: "6" }} zIndex={30} align="end" gap="3">
 
         <Button
           type="button"
@@ -1630,9 +2123,21 @@ export function VoterDashboard({
           boxShadow="0 18px 44px rgba(240,177,75,0.28)"
           onClick={() => setHelpOpen((current) => !current)}
         >
-          <HStack gap="2">
+          <HStack gap="3">
             <CircleHelp size={18} />
-            <Text as="span">{helpOpen ? "Hide help desk" : "Help desk"}</Text>
+            <Text as="span">{helpOpen ? "Close help desk" : "Open help desk"}</Text>
+            {openTicketCount > 0 ? (
+              <Box
+                rounded="full"
+                bg="rgba(31, 19, 0, 0.14)"
+                px="2.5"
+                py="1"
+                fontSize="xs"
+                lineHeight="1"
+              >
+                {openTicketCount}
+              </Box>
+            ) : null}
           </HStack>
         </Button>
       </Stack>

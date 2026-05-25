@@ -62,6 +62,48 @@ type AlertItem = {
   tone: "positive" | "neutral" | "warning";
 };
 
+type SummaryItem = {
+  title: string;
+  value: string;
+  detail: string;
+};
+
+type DashboardAction = {
+  id: string;
+  label: string;
+  description: string;
+  variant?: "solid" | "outline" | "ghost";
+  colorScheme?: string;
+  disabled?: boolean;
+};
+
+type CommandNotice = {
+  time: string;
+  title: string;
+  detail: string;
+  tone: "positive" | "neutral" | "warning";
+};
+
+type DashboardConfig = {
+  shellLabel: string;
+  heading: string;
+  description: string;
+  roleLabel: string;
+  summaryCards: SummaryItem[];
+  operationsCards: SummaryItem[];
+  liveFeedLabel: string;
+  liveFeedHeading: string;
+  liveFeedDescription: string;
+  liveFeedExportLabel: string;
+  liveActivity: ActivityEvent[];
+  alertsTitle: string;
+  alerts: AlertItem[];
+  actionsTitle: string;
+  privilegeTitle: string;
+  privilegeDetail: string;
+  actions: DashboardAction[];
+};
+
 const TURNOUT_SERIES: TurnoutPoint[] = [
   { time: "08:00", turnout: 11, ballots: "9,618 ballots" },
   { time: "10:00", turnout: 24, ballots: "20,214 ballots" },
@@ -160,6 +202,407 @@ const ALERTS: AlertItem[] = [
     tone: "neutral",
   },
 ];
+
+const SECRETARY_ACTIVITY: ActivityEvent[] = [
+  {
+    time: "17:44:03",
+    zone: "Federation",
+    actor: "National secretariat desk",
+    action: "Chairman briefing pack moved to final review.",
+    detail: "Turnout snapshots, branch minutes, and unresolved incident notes were compiled into the 18:00 briefing set.",
+    tone: "positive",
+  },
+  {
+    time: "17:37:20",
+    zone: "South West",
+    actor: "Lagos collation desk",
+    action: "Signed branch minutes uploaded for archive indexing.",
+    detail: "Three branch returns were tagged, timestamped, and queued for observer-safe publication.",
+    tone: "neutral",
+  },
+  {
+    time: "17:30:11",
+    zone: "North Central",
+    actor: "Abuja returns coordinator",
+    action: "Incident memo prepared for chairman escalation.",
+    detail: "A polling-unit closure request was documented, but approval remains pending before any timetable change.",
+    tone: "warning",
+  },
+  {
+    time: "17:22:46",
+    zone: "South South",
+    actor: "Rivers branch secretary",
+    action: "Collation discrepancy note resolved.",
+    detail: "Missing accreditation remarks were attached and the branch ledger was returned to the green queue.",
+    tone: "positive",
+  },
+  {
+    time: "17:09:54",
+    zone: "Federation",
+    actor: "Secretary operations console",
+    action: "Internal notice draft staged for chairman approval.",
+    detail: "The draft contains turnout, queue status, and documented exceptions without system-control actions.",
+    tone: "neutral",
+  },
+];
+
+const SECRETARY_ALERTS: AlertItem[] = [
+  {
+    time: "17:31",
+    title: "Approval pending on branch closure memo",
+    detail: "Secretary can log and package the request, but timetable changes are blocked until chairman sign-off.",
+    tone: "warning",
+  },
+  {
+    time: "17:12",
+    title: "Returns archive sync completed",
+    detail: "Uploaded minutes from 14 branches were mirrored to the immutable records store without drift.",
+    tone: "positive",
+  },
+  {
+    time: "16:48",
+    title: "Observer brief draft ready",
+    detail: "A sanitized summary of turnout and branch status is staged for final executive review.",
+    tone: "neutral",
+  },
+];
+
+const CHAIRMAN_DASHBOARD: DashboardConfig = {
+  shellLabel: "🗳️ ECNBA 2026 Elections – Admin Dashboard",
+  heading: "Live election operations for the Chairman command center",
+  description:
+    "Monitor turnout, accreditation, zonal participation, authentication health, and immutable activity trails in a single secure command view.",
+  roleLabel: "Chairman",
+  summaryCards: [
+    { title: "Eligible Voters", value: "87,432", detail: "Registered members eligible to vote today." },
+    { title: "Ballots Cast", value: "54,891", detail: "Ballots received so far across the federation." },
+    { title: "Turnout Rate", value: "62.8%", detail: "Current participation rate among registered voters." },
+    { title: "Polls Close", value: "3h 24m", detail: "Time remaining until official voting closes." },
+  ],
+  operationsCards: [
+    { title: "✅ Uptime", value: "99.97%", detail: "Election services remain available and monitored." },
+    { title: "⚡ Avg Resp Time", value: "245ms", detail: "Current API response time across voting endpoints." },
+    { title: "📊 Error Rate", value: "0.02%", detail: "Very low incident rate across the control plane." },
+    { title: "🔥 CPU Usage", value: "34%", detail: "Application infrastructure operating within expected limits." },
+  ],
+  liveFeedLabel: "⚡ Live election activity stream",
+  liveFeedHeading: "Operations feed mirrored to audit storage",
+  liveFeedDescription:
+    "Field operations, help desk movement, security events, and command actions in one stream.",
+  liveFeedExportLabel: "Export Audit Log",
+  liveActivity: LIVE_ACTIVITY,
+  alertsTitle: "⚠️ Alerts & anomalies",
+  alerts: ALERTS,
+  actionsTitle: "Command actions",
+  privilegeTitle: "Override scope",
+  privilegeDetail:
+    "The chairman can authorize timetable changes, publish observer-safe exports, and escalate operational controls directly from this workspace.",
+  actions: [
+    {
+      id: "extend-voting",
+      label: "Extend Voting",
+      description: "Authorize a federation-wide extension when field conditions require extra voting time.",
+      colorScheme: "teal",
+    },
+    {
+      id: "dispatch-incident-response",
+      label: "Dispatch Incident Response",
+      description: "Mobilize field supervisors and technical staff to branches with active anomalies or queue spikes.",
+      variant: "outline",
+    },
+    {
+      id: "view-helpdesk-queue",
+      label: "Refresh Help Desk Command View",
+      description: "Inspect unresolved voter support cases and coordinate reassignment across branches.",
+      variant: "outline",
+    },
+    {
+      id: "freeze-suspicious-endpoint",
+      label: "Freeze Suspicious Endpoint",
+      description: "Isolate a flagged device path while preserving voter sessions and the forensic trail.",
+      variant: "outline",
+    },
+    {
+      id: "release-observer-report",
+      label: "Release Observer Situation Report",
+      description: "Publish a sanitized operational bulletin to oversight stakeholders from the command center.",
+      variant: "outline",
+    },
+    {
+      id: "trigger-federation-snapshot",
+      label: "Trigger Federation Snapshot",
+      description: "Seal an updated operations snapshot for audit storage and executive review.",
+      variant: "outline",
+    },
+  ],
+};
+
+const SECRETARY_DASHBOARD: DashboardConfig = {
+  shellLabel: "🗳️ ECNBA 2026 Elections – Secretary Dashboard",
+  heading: "Election coordination workspace for the Secretary",
+  description:
+    "Track returns, prepare executive briefs, manage collation records, and coordinate internal communications without chairman-only override powers.",
+  roleLabel: "Secretary",
+  summaryCards: [
+    { title: "Returns Logged", value: "92/96", detail: "Branch collation packets received and indexed in the secretariat queue." },
+    { title: "Minutes Prepared", value: "34", detail: "Meeting and branch minutes compiled for executive review." },
+    { title: "Pending Approvals", value: "3", detail: "Requests packaged for chairman decision before any system-wide change." },
+    { title: "Polls Close", value: "3h 24m", detail: "Shared election clock for notices, briefs, and archive cutoffs." },
+  ],
+  operationsCards: [
+    { title: "🗂️ Archive Sync", value: "14 branches", detail: "Latest signed minutes mirrored to the protected records store." },
+    { title: "📝 Draft Briefs", value: "4", detail: "Chairman and observer summaries staged for final review." },
+    { title: "📣 Notice Queue", value: "7", detail: "Internal updates waiting for scheduling or executive approval." },
+    { title: "🤝 Desk Requests", value: "12", detail: "Branch coordination issues currently being tracked by the secretariat." },
+  ],
+  liveFeedLabel: "📝 Secretariat activity stream",
+  liveFeedHeading: "Collation, minutes, and approvals in one feed",
+  liveFeedDescription:
+    "Track documented returns, internal notices, branch follow-ups, and items staged for chairman sign-off.",
+  liveFeedExportLabel: "Export Minutes Register",
+  liveActivity: SECRETARY_ACTIVITY,
+  alertsTitle: "⚠️ Alerts & approvals",
+  alerts: SECRETARY_ALERTS,
+  actionsTitle: "Secretary actions",
+  privilegeTitle: "Privilege boundary",
+  privilegeDetail:
+    "The secretary can prepare briefs, document incidents, and manage internal communications, but voting extensions and final public releases still require chairman approval.",
+  actions: [
+    {
+      id: "prepare-chairman-brief",
+      label: "Prepare Chairman Brief",
+      description: "Assemble turnout summaries, unresolved issues, and branch notes into the next executive briefing pack.",
+      colorScheme: "teal",
+    },
+    {
+      id: "export-collation-minutes",
+      label: "Export Collation Minutes",
+      description: "Download the latest branch minutes and collation notes for records and executive circulation.",
+      variant: "outline",
+    },
+    {
+      id: "queue-public-notice",
+      label: "Queue Public Notice for Approval",
+      description: "Draft an internal or observer-safe notice and move it to the chairman approval lane.",
+      variant: "outline",
+    },
+    {
+      id: "extend-voting",
+      label: "Extend Voting (Chairman only)",
+      description: "Operational overrides remain visible for context, but cannot be executed from the secretary workspace.",
+      variant: "ghost",
+      disabled: true,
+    },
+  ],
+};
+
+function formatDashboardTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function createActionOutcome(
+  role: "chairman" | "secretary",
+  action: DashboardAction,
+  timestamp: number,
+): { notice: CommandNotice; event: ActivityEvent } {
+  const time = formatDashboardTime(timestamp);
+  const actor = role === "chairman" ? "Chairman command center" : "Secretary operations console";
+
+  switch (action.id) {
+    case "extend-voting":
+      return {
+        notice: {
+          time,
+          title: role === "chairman" ? "Voting extension authorized" : "Voting override restricted",
+          detail:
+            role === "chairman"
+              ? "A 30-minute federation-wide extension was staged with branch alerts, audit tagging, and observer-facing notice updates."
+              : "The secretary workspace can document an extension request, but final timetable overrides remain blocked until the chairman approves them.",
+          tone: role === "chairman" ? "warning" : "warning",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action:
+            role === "chairman"
+              ? "Authorized a 30-minute voting extension."
+              : "Prepared but could not execute a voting extension request.",
+          detail:
+            role === "chairman"
+              ? "Branches received updated close-of-poll guidance and audit storage captured the override package."
+              : "The request was logged for executive approval without changing the live poll timetable.",
+          tone: "warning",
+        },
+      };
+    case "dispatch-incident-response":
+      return {
+        notice: {
+          time,
+          title: "Incident response teams dispatched",
+          detail: "Field supervisors in the North East and South South queues were reassigned to anomaly and congestion hotspots.",
+          tone: "positive",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Incident response teams dispatched to flagged branches.",
+          detail: "Two technical supervisors and one queue support team were reassigned with chairman approval.",
+          tone: "positive",
+        },
+      };
+    case "view-helpdesk-queue":
+      return {
+        notice: {
+          time,
+          title: "Help desk queue mirrored to command view",
+          detail: "Critical recovery tickets were re-sorted by SLA risk so chairman oversight reflects the latest support backlog.",
+          tone: "neutral",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Synchronized the live help desk queue.",
+          detail: "Recovery tickets, escalations, and standby staffing allocations were refreshed in the chairman console.",
+          tone: "neutral",
+        },
+      };
+    case "freeze-suspicious-endpoint":
+      return {
+        notice: {
+          time,
+          title: "Suspicious endpoint frozen",
+          detail: "Traffic to the flagged endpoint was isolated while voter sessions and evidence trails were preserved for review.",
+          tone: "warning",
+        },
+        event: {
+          time,
+          zone: "North East",
+          actor,
+          action: "Flagged endpoint isolated from the live voting path.",
+          detail: "Containment controls were activated without invalidating legitimate voter sessions.",
+          tone: "warning",
+        },
+      };
+    case "release-observer-report":
+      return {
+        notice: {
+          time,
+          title: role === "chairman" ? "Observer situation report released" : "Observer notice staged for approval",
+          detail:
+            role === "chairman"
+              ? "A sanitized turnout, uptime, and incident summary was published to oversight stakeholders."
+              : "The draft observer notice was packaged for executive sign-off and held outside the public release channel.",
+          tone: "positive",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action:
+            role === "chairman"
+              ? "Released an observer-safe situation report."
+              : "Queued an observer-safe notice for chairman approval.",
+          detail:
+            role === "chairman"
+              ? "The bulletin excluded privileged controls and member-identifying data."
+              : "The publication package contains only sanitized branch and turnout data.",
+          tone: "positive",
+        },
+      };
+    case "trigger-federation-snapshot":
+      return {
+        notice: {
+          time,
+          title: "Federation snapshot sealed",
+          detail: "A fresh operations snapshot was committed to audit storage for executive replay and post-election verification.",
+          tone: "neutral",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Triggered a federation-wide operations snapshot.",
+          detail: "Turnout, auth, branch status, and anomaly markers were sealed into the latest audit bundle.",
+          tone: "neutral",
+        },
+      };
+    case "prepare-chairman-brief":
+      return {
+        notice: {
+          time,
+          title: "Chairman brief assembled",
+          detail: "The next executive pack now includes updated turnout, unresolved incidents, and branch coordination notes.",
+          tone: "positive",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Prepared the next chairman operations brief.",
+          detail: "The brief merged collated minutes, queue summaries, and pending approvals.",
+          tone: "positive",
+        },
+      };
+    case "export-collation-minutes":
+      return {
+        notice: {
+          time,
+          title: "Collation minutes exported",
+          detail: "Signed branch minutes and collation notes were packaged for executive circulation and records custody.",
+          tone: "neutral",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Exported the latest collation minutes register.",
+          detail: "The package includes branch notes, timestamps, and approval markers only.",
+          tone: "neutral",
+        },
+      };
+    case "queue-public-notice":
+      return {
+        notice: {
+          time,
+          title: "Public notice queued for approval",
+          detail: "The draft communication is ready for chairman sign-off and remains outside public channels until approved.",
+          tone: "neutral",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: "Queued an internal or observer notice for approval.",
+          detail: "The draft captured turnout, queue posture, and approved branch messaging.",
+          tone: "neutral",
+        },
+      };
+    default:
+      return {
+        notice: {
+          time,
+          title: `${action.label} acknowledged`,
+          detail: action.description,
+          tone: "neutral",
+        },
+        event: {
+          time,
+          zone: "Federation",
+          actor,
+          action: `${action.label} executed.`,
+          detail: action.description,
+          tone: "neutral",
+        },
+      };
+  }
+}
 
 function SummaryCard({ title, value, detail }: { title: string; value: string; detail: string }) {
   return (
@@ -648,24 +1091,38 @@ function AuthenticationTrendPanel() {
   );
 }
 
-function LiveActivityPanel({ onRefresh }: { onRefresh: () => void }) {
+function LiveActivityPanel({
+  onRefresh,
+  label,
+  heading,
+  description,
+  exportLabel,
+  events,
+}: {
+  onRefresh: () => void;
+  label: string;
+  heading: string;
+  description: string;
+  exportLabel: string;
+  events: ActivityEvent[];
+}) {
   return (
     <Box bg="rgba(255,255,255,0.03)" border="1px solid var(--line-soft)" rounded="28px" p="6">
       <Flex justify="space-between" align="center" wrap="wrap" gap="4" mb="5">
         <Stack gap="1">
           <Text fontSize="sm" letterSpacing="0.18em" textTransform="uppercase" color="var(--text-dim)" fontWeight="700">
-            ⚡ Live election activity stream
+            {label}
           </Text>
           <Heading fontFamily='"Sora", sans-serif' size="lg" color="var(--text-main)">
-            Operations feed mirrored to audit storage
+            {heading}
           </Heading>
           <Text color="var(--text-soft)" fontSize="sm">
-            Field operations, help desk movement, security events, and command actions in one stream.
+            {description}
           </Text>
         </Stack>
         <HStack gap="3" wrap="wrap">
           <Button variant="outline" fontWeight="700" rounded="20px">
-            Export Audit Log
+            {exportLabel}
           </Button>
           <Button onClick={onRefresh} fontWeight="700" rounded="20px">
             <HStack gap="2">
@@ -677,7 +1134,7 @@ function LiveActivityPanel({ onRefresh }: { onRefresh: () => void }) {
       </Flex>
 
       <Stack gap="3">
-        {LIVE_ACTIVITY.map((event) => {
+        {events.map((event) => {
           const palette = toneStyles(event.tone);
 
           return (
@@ -729,9 +1186,21 @@ function LiveActivityPanel({ onRefresh }: { onRefresh: () => void }) {
   );
 }
 
-export function AdminDashboard({ session, onCloseSession }: { session: AuthSession; onCloseSession: () => void }) {
+function OperationsDashboard({
+  session,
+  onCloseSession,
+  role,
+}: {
+  session: AuthSession;
+  onCloseSession: () => void;
+  role: "chairman" | "secretary";
+}) {
   const [clockNow, setClockNow] = useState(Date.now());
   const [lastRefreshAt, setLastRefreshAt] = useState(Date.now());
+  const [commandNotice, setCommandNotice] = useState<CommandNotice | null>(null);
+  const [commandFeed, setCommandFeed] = useState<ActivityEvent[]>([]);
+  const dashboard = role === "secretary" ? SECRETARY_DASHBOARD : CHAIRMAN_DASHBOARD;
+  const liveFeedEvents = [...commandFeed, ...dashboard.liveActivity].slice(0, 7);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
@@ -750,27 +1219,50 @@ export function AdminDashboard({ session, onCloseSession }: { session: AuthSessi
     setLastRefreshAt(Date.now());
   }
 
+  function handleDashboardAction(action: DashboardAction) {
+    if (action.disabled) {
+      return;
+    }
+
+    const timestamp = Date.now();
+    const outcome = createActionOutcome(role, action, timestamp);
+
+    setCommandNotice(outcome.notice);
+    setCommandFeed((current) => [outcome.event, ...current].slice(0, 4));
+    setClockNow(timestamp);
+    setLastRefreshAt(timestamp);
+  }
+
   return (
     <Box minH="100vh" bg="var(--page-bg)" px={{ base: "5", md: "8", xl: "10" }} py={{ base: "6", md: "8", xl: "10" }}>
       <Stack gap="8">
         <Flex direction={{ base: "column", md: "row" }} align="start" justify="space-between" gap="6">
           <Stack gap="3" maxW={{ base: "100%", md: "65%" }}>
             <Text fontSize="sm" letterSpacing="0.24em" textTransform="uppercase" color="var(--brand-200)" fontWeight="700">
-              🗳️ ECNBA 2026 Elections – Admin Dashboard
+              {dashboard.shellLabel}
             </Text>
             <Heading fontFamily='"Sora", sans-serif' fontSize={{ base: "3xl", md: "4xl" }} lineHeight="1.05" color="var(--text-main)">
-              Live election operations for the Chairman command center
+              {dashboard.heading}
             </Heading>
             <Text color="var(--text-soft)" maxW="3xl" fontSize="md">
-              Monitor turnout, accreditation, zonal participation, authentication health, and immutable activity trails in a single secure command view.
+              {dashboard.description}
             </Text>
           </Stack>
 
           <Stack gap="3" align="end" minW="220px">
             <HStack gap="3" align="center" bg="rgba(255,255,255,0.05)" border="1px solid var(--line-soft)" rounded="24px" px="4" py="3">
               <ShieldCheck color="#1fb89d" />
-              <Text fontWeight="700">Role: {session.role === "chairman" ? "Chairman" : session.role}</Text>
+              <Text fontWeight="700">Role: {dashboard.roleLabel}</Text>
             </HStack>
+            <Box bg="rgba(255,255,255,0.04)" border="1px solid var(--line-soft)" rounded="24px" px="4" py="3">
+              <Text fontSize="xs" color="var(--text-dim)">Signed in as</Text>
+              <Text mt="1" fontWeight="700" color="var(--text-main)">
+                {session.displayName}
+              </Text>
+              <Text fontSize="sm" color="var(--text-soft)">
+                {session.branch}
+              </Text>
+            </Box>
             <Box bg="rgba(255,255,255,0.04)" border="1px solid var(--line-soft)" rounded="24px" px="4" py="3">
               <Text fontSize="xs" color="var(--text-dim)">Last refreshed</Text>
               <Text mt="1" fontWeight="700" color="var(--text-main)">
@@ -781,10 +1273,9 @@ export function AdminDashboard({ session, onCloseSession }: { session: AuthSessi
         </Flex>
 
         <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="4">
-          <SummaryCard title="Eligible Voters" value="87,432" detail="Registered members eligible to vote today." />
-          <SummaryCard title="Ballots Cast" value="54,891" detail="Ballots received so far across the federation." />
-          <SummaryCard title="Turnout Rate" value="62.8%" detail="Current participation rate among registered voters." />
-          <SummaryCard title="Polls Close" value="3h 24m" detail="Time remaining until official voting closes." />
+          {dashboard.summaryCards.map((card) => (
+            <SummaryCard key={card.title} title={card.title} value={card.value} detail={card.detail} />
+          ))}
         </SimpleGrid>
 
         <Grid templateColumns={{ base: "1fr", xl: "0.64fr 0.36fr" }} gap="4">
@@ -798,22 +1289,28 @@ export function AdminDashboard({ session, onCloseSession }: { session: AuthSessi
         </Grid>
 
         <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} gap="4">
-          <SummaryCard title="✅ Uptime" value="99.97%" detail="Election services remain available and monitored." />
-          <SummaryCard title="⚡ Avg Resp Time" value="245ms" detail="Current API response time across voting endpoints." />
-          <SummaryCard title="📊 Error Rate" value="0.02%" detail="Very low incident rate across the control plane." />
-          <SummaryCard title="🔥 CPU Usage" value="34%" detail="Application infrastructure operating within expected limits." />
+          {dashboard.operationsCards.map((card) => (
+            <SummaryCard key={card.title} title={card.title} value={card.value} detail={card.detail} />
+          ))}
         </SimpleGrid>
 
         <Grid templateColumns={{ base: "1fr", xl: "0.62fr 0.38fr" }} gap="4">
-          <LiveActivityPanel onRefresh={handleRefresh} />
+          <LiveActivityPanel
+            onRefresh={handleRefresh}
+            label={dashboard.liveFeedLabel}
+            heading={dashboard.liveFeedHeading}
+            description={dashboard.liveFeedDescription}
+            exportLabel={dashboard.liveFeedExportLabel}
+            events={liveFeedEvents}
+          />
 
           <Stack gap="4">
             <Box bg="rgba(255,255,255,0.03)" border="1px solid var(--line-soft)" rounded="28px" p="6">
               <Text fontSize="sm" letterSpacing="0.18em" textTransform="uppercase" color="var(--text-dim)" fontWeight="700">
-                ⚠️ Alerts & anomalies
+                {dashboard.alertsTitle}
               </Text>
               <Stack gap="3" mt="5">
-                {ALERTS.map((alert) => {
+                {dashboard.alerts.map((alert) => {
                   const palette = toneStyles(alert.tone);
 
                   return (
@@ -847,15 +1344,64 @@ export function AdminDashboard({ session, onCloseSession }: { session: AuthSessi
 
             <Box bg="rgba(255,255,255,0.03)" border="1px solid var(--line-soft)" rounded="28px" p="6">
               <Text fontSize="sm" letterSpacing="0.18em" textTransform="uppercase" color="var(--text-dim)" fontWeight="700">
-                Command actions
+                {dashboard.actionsTitle}
               </Text>
               <Stack gap="4" mt="5">
-                <Button colorScheme="teal" rounded="22px" fontWeight="700">
-                  Extend Voting (Chairman only)
-                </Button>
-                <Button variant="outline" rounded="22px" fontWeight="700">
-                  View Live Help Desk Queue
-                </Button>
+                {commandNotice ? (
+                  <Box
+                    rounded="22px"
+                    border="1px solid"
+                    borderColor={toneStyles(commandNotice.tone).border}
+                    bg={toneStyles(commandNotice.tone).bg}
+                    px="4"
+                    py="4"
+                  >
+                    <Flex justify="space-between" align="start" gap="4" wrap="wrap">
+                      <Stack gap="1">
+                        <Text color="var(--text-main)" fontWeight="700">
+                          {commandNotice.title}
+                        </Text>
+                        <Text color="var(--text-soft)" fontSize="sm">
+                          {commandNotice.detail}
+                        </Text>
+                      </Stack>
+                      <Text
+                        fontSize="xs"
+                        letterSpacing="0.16em"
+                        textTransform="uppercase"
+                        color={toneStyles(commandNotice.tone).labelColor}
+                        fontWeight="700"
+                      >
+                        {commandNotice.time}
+                      </Text>
+                    </Flex>
+                  </Box>
+                ) : null}
+                <Box rounded="22px" border="1px solid rgba(255,255,255,0.08)" bg="rgba(255,255,255,0.02)" px="4" py="4">
+                  <Text color="var(--text-main)" fontWeight="700">
+                    {dashboard.privilegeTitle}
+                  </Text>
+                  <Text color="var(--text-soft)" fontSize="sm" mt="2">
+                    {dashboard.privilegeDetail}
+                  </Text>
+                </Box>
+                {dashboard.actions.map((action) => (
+                  <Stack key={action.label} gap="2">
+                    <Button
+                      colorScheme={action.colorScheme}
+                      variant={action.variant}
+                      rounded="22px"
+                      fontWeight="700"
+                      disabled={action.disabled}
+                      onClick={() => handleDashboardAction(action)}
+                    >
+                      {action.label}
+                    </Button>
+                    <Text color="var(--text-soft)" fontSize="sm">
+                      {action.description}
+                    </Text>
+                  </Stack>
+                ))}
                 <Button onClick={onCloseSession} variant="ghost" rounded="22px" fontWeight="700" color="var(--text-main)">
                   Exit Dashboard
                 </Button>
@@ -866,4 +1412,24 @@ export function AdminDashboard({ session, onCloseSession }: { session: AuthSessi
       </Stack>
     </Box>
   );
+}
+
+export function AdminDashboard({
+  session,
+  onCloseSession,
+}: {
+  session: AuthSession;
+  onCloseSession: () => void;
+}) {
+  return <OperationsDashboard session={session} onCloseSession={onCloseSession} role="chairman" />;
+}
+
+export function SecretaryDashboard({
+  session,
+  onCloseSession,
+}: {
+  session: AuthSession;
+  onCloseSession: () => void;
+}) {
+  return <OperationsDashboard session={session} onCloseSession={onCloseSession} role="secretary" />;
 }
